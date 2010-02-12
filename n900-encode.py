@@ -71,7 +71,7 @@ def main(argv):
 	else:
 		mpbin = progpath("mplayer")
 	if mpbin == None:
-		print "Error: mplayer not found in PATH binary given, Aborting!"
+		print "Error: mplayer not found in PATH and no binary given, Aborting!"
 		sys.exit(1)
 
 	global ffbin
