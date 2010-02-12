@@ -1,28 +1,48 @@
 #!/usr/bin/env python
 
+###########################################################################################
+# n900-encode.py: Encode almost any Video to an Nokia N900-compatible format (h264,aac,mp4)
+# Disclaimer: This program is provided without any warranty, USE AT YOUR OWN RISK!
+#
+# (C) 2010 Stefan Brand <seiichiro0185 AT tol DOT ch>
+###########################################################################################
+
 import sys, os, getopt, subprocess, re
 
-_basewidth = 800
-_basewidth43 = 640
-_maxheight = 480
-_abitrate = 96
-_vbitrate = 500
-_threads = 2
+###########################################################################################
+# Default values, feel free to adjust
+###########################################################################################
+
+_basewidth = 800 		# Base width for widescreen Video
+_basewidth43 = 640	# Base width for 4:3 Video
+_maxheight = 480		# maximum height allowed
+_abitrate = 96			# Audio Bitrate in kBit/s
+_vbitrate = 500			# Video Bitrate in kBit/s
+_threads = 2				# Use n Threads to encode
+_mpbin = None				# mplayer binary, if set to None it is searched in your $PATH
+_ffbin = None				# ffmpeg binary, if set to None it is searched in your $PATH
+
+###########################################################################################
+# Main Program, no changes needed bekow this line
+###########################################################################################
 
 def main(argv):
 	"""Main Function, cli argument processing and checking"""
+
+	# CLI Argument Processing
 	try:
-		opts, args = getopt.getopt(argv, "i:o:m:v:a:t:h", ["input=", "output=", "mpopts=", "abitrate=", "vbitrate=", "threads=", "help"])
+		opts, args = getopt.getopt(argv, "i:o:m:v:a:t:hf", ["input=", "output=", "mpopts=", "abitrate=", "vbitrate=", "threads=", "help", "force-overwrite"])
 	except getopt.GetoptError, err:
 		print str(err)
 		usage()
-		sys.exit(1)
+
 	input = None
-	output = "n900encode,mp4"
+	output = "n900encode.mp4"
 	mpopts = ""
 	abitrate = _abitrate * 1000
 	vbitrate = _vbitrate * 1000
 	threads = _threads
+	overwrite = False
 	for opt, arg in opts:
 		if opt in ("-i", "--input"):
 			input = arg
@@ -36,32 +56,73 @@ def main(argv):
 			vbitrate = arg * 1000
 		elif opt in ("-t", "--threads"):
 			threads = arg
+		elif opt in ("-f", "--force-overwrite"):
+			overwrite = True
 		elif opt in ("-h", "--help"):
 			usage()
-			sys.exit(0)
 
+	# Check for needed Programs
+	global mpbin
+	mpbin = None
+	if _mpbin == None:
+		mpbin = progpath("mplayer")
+	else:
+		if os.path.exists(_mpbin) and not os.path.isdir(_mpbin):
+			mpbin = _mpbin
+	if mpbin == None:
+		print "Error: mplayer not found in PATH binary given, Aborting!"
+		sys.exit(1)
+
+	global ffbin
+	ffbin = None
+	if _ffbin == None:
+		ffbin = progpath("ffmpeg")
+	else:
+		if os.path.exists(_ffbin) and not os.path.isdir(_ffbin):
+			ffbin = _ffbin
+	if ffbin == None:
+		print "Error: ffmpeg not found in PATH and no binary given, Aborting!"
+		sys.exit(1)
+
+	# Check input and output files
 	if not os.path.isfile(input):
 		print "Error: input file is not a valid File or doesn't exist"
 		sys.exit(2)
+
+	if os.path.isfile(output):
+		if overwrite:
+			os.remove(output)
+		else:
+			print "Error: output file already exists, force overwrite with -f"
+			sys.exit(1)
 	
+	# Start Processing
 	res = calculate(input)
 	convert(input, output, res, abitrate, vbitrate, threads, mpopts)
 
 
 def calculate(input):
-	cmd="mplayer -ao null -vo null -frames 0 -identify \"" + input + "\""
-	mp = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
-	
-	s = re.compile("^ID_VIDEO_ASPECT=(.*)$", re.M)
-	m = s.search(mp[0])
-	orig_aspect = m.group(1)
-	s = re.compile("^ID_VIDEO_WIDTH=(.*)$", re.M)
-	m = s.search(mp[0])
-	orig_width = m.group(1)
-	s = re.compile("^ID_VIDEO_HEIGHT=(.*)$", re.M)
-	m = s.search(mp[0])
-	orig_height = m.group(1)
+	"""Get Characteristics from input video and calculate resolution for output"""
 
+	# Get characteristics using mplayer
+	cmd=[mpbin, "-ao", "null", "-vo", "null", "-frames", "0", "-identify", input]
+	mp = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+	
+	try:
+		s = re.compile("^ID_VIDEO_ASPECT=(.*)$", re.M)
+		m = s.search(mp[0])
+		orig_aspect = m.group(1)
+		s = re.compile("^ID_VIDEO_WIDTH=(.*)$", re.M)
+		m = s.search(mp[0])
+		orig_width = m.group(1)
+		s = re.compile("^ID_VIDEO_HEIGHT=(.*)$", re.M)
+		m = s.search(mp[0])
+		orig_height = m.group(1)
+	except:
+		print "Error: unable to identify source video, exiting!"
+		sys.exit(2)
+
+	# Calculate output resolution
 	width = _basewidth
 	height = int(round(_basewidth / float(orig_aspect) / 16) * 16)
 	if (height > _maxheight):
@@ -74,25 +135,89 @@ def calculate(input):
 def convert(input, output, res, abitrate, vbitrate, threads, mpopts):
 	"""Convert the Video"""
 
+	# Create FIFOs for passing audio/video from mplayer to ffmpeg
 	pid = os.getpid()
 	afifo = "/tmp/stream" + str(pid) + ".wav"
 	vfifo = "/tmp/stream" + str(pid) + ".yuv"
 	os.mkfifo(afifo)
 	os.mkfifo(vfifo)
 
-	mpvideodec = "mplayer -sws 9 -vf scale=" + str(res[0]) + ":" + str(res[1]) + ",unsharp=c4x4:0.3:l5x5:0.5 -vo yuv4mpeg:file=" + vfifo +" -ao null -nosound -noframedrop -benchmark -quiet -msglevel all=-1 " + mpopts + "\"" + input + "\" &"
+	# Define mplayer command for video decoding
+	mpvideodec = [ mpbin,
+			"-sws", "9",
+			"-vf", "scale=" + str(res[0]) + ":" + str(res[1]) + ",unsharp=c4x4:0.3:l5x5:0.5",
+			"-vo", "yuv4mpeg:file=" + vfifo,
+			"-ao", "null",
+			"-nosound",
+			"-noframedrop",
+			"-benchmark",
+			"-quiet",
+			"-msglevel", "all=-1",
+			mpopts,
+			input ]
 
-	mpaudiodec = "mplayer -ao pcm:file=" + afifo + " -vo null -vc null -noframedrop -quiet -msglevel all=-1 2>/dev/null " + mpopts + "\"" + input + "\" &"
+	# Define mplayer command for audio decoding
+	mpaudiodec = [ mpbin,
+			"-ao", "pcm:file=" + afifo,
+			"-vo", "null",
+			"-vc", "null",
+			"-noframedrop",
+			"-quiet",
+			"-msglevel", "all=-1",
+			mpopts,
+			input ]
 
-	ffmenc = "ffmpeg -f yuv4mpegpipe -i " + vfifo + " -i " + afifo + " -acodec libfaac -ac 2 -ab " + str(abitrate) + " -ar 22500 -vcodec libx264 -threads " + str(threads) + " -b " + str(vbitrate) + " -flags +loop -cmp +chroma -partitions +parti4x4+partp8x8+partb8x8 -subq 5 -trellis 1 -refs 1 -coder 0 -me_range 16 -g 300 -keyint_min 25 -sc_threshold 40 -i_qfactor 0.71 -bt 640 -bufsize 10M -rc_eq 'blurCplx^(1-qComp)' -qcomp 0.6 -qmin 10 -qmax 51 -level 30 -f mp4 \"" + output + "\""
+	# Define ffmpeg command for a/v encoding
+	ffmenc = [ ffbin,
+			"-f", "yuv4mpegpipe",
+			"-i", vfifo,
+			"-i", afifo,
+			"-acodec", "libfaac",
+			"-ac", "2",
+			"-ab", str(abitrate),
+			"-ar", "22500",
+			"-vcodec", "libx264",
+			"-threads", str(threads),
+			"-b", str(vbitrate),
+			"-flags", "+loop", "-cmp", "+chroma",
+			"-partitions", "+parti4x4+partp8x8+partb8x8",
+			"-subq", "5", "-trellis", "1", "-refs", "1",
+			"-coder", "0", "-me_range", "16",
+			"-g", "300", "-keyint_min", "25",
+			"-sc_threshold", "40", "-i_qfactor", "0.71",
+			"-bt", "640", "-bufsize", "10M",
+			"-rc_eq", "'blurCplx^(1-qComp)'",
+			"-qcomp", "0.62", "-qmin", "10", "-qmax", "51",
+			"-level", "30", "-f", "mp4", 
+			output ]
 
-	subprocess.Popen(mpvideodec, shell=True, stdout=None, stderr=None)
-	subprocess.Popen(mpaudiodec, shell=True, stdout=None, stderr=None)
-	subprocess.call(ffmenc, shell=True)
+	# Start mplayer decoding processes in background
+	try:
+		subprocess.Popen(mpvideodec, stdout=None, stderr=None)
+		subprocess.Popen(mpaudiodec, stdout=None, stderr=None)
+	except:
+		print "Error: Starting decoding threads failed!"
+		sys.exit(3)
+	
+	# Start ffmpeg encoding process in foreground
+	try:
+		subprocess.check_call(ffmenc)
+	except CalledProcessError:
+		print "Error: Encoding thread failed!"
+		sys.exit(4)
 
+	# Remove FIFOs after encoding
 	os.remove(afifo)
 	os.remove(vfifo)
 
+
+def progpath(program):
+	"""Get Full path for given Program"""
+
+	for path in os.environ.get('PATH', '').split(':'):
+		if os.path.exists(os.path.join(path, program)) and not os.path.isdir(os.path.join(path, program)):
+			return os.path.join(path, program)
+	return None
 
 
 def usage():
@@ -106,7 +231,9 @@ def usage():
 	print "--abitrate <br>   [-a]: Audio Bitrate in KBit/s"
 	print "--vbitrate <br>   [-v]: Video Bitrate in kBit/s"
 	print "--threads <num>   [-t]: Use <num> Threads to encode"
+	print "--force-iverwrite [-f]: Overwrite Output-File if existing"
 	print "--help            [-h]: Print this Help"
+	sys.exit(0)
 
 
 # Start the Main Function
