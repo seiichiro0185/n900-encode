@@ -7,7 +7,9 @@
 # (C) 2010 Stefan Brand <seiichiro0185 AT tol DOT ch>
 ###########################################################################################
 
-import sys, os, getopt, subprocess, re
+import sys, os, getopt, subprocess, re, atexit
+from signal import signal, SIGTERM, SIGINT
+from time import sleep
 
 ###########################################################################################
 # Default values, feel free to adjust
@@ -91,12 +93,13 @@ def main(argv):
 		if overwrite:
 			os.remove(output)
 		else:
-			print "Error: output file already exists, force overwrite with -f"
+			print "Error: output file " + output + " already exists, force overwrite with -f"
 			sys.exit(1)
-	
+
 	# Start Processing
 	res = calculate(input)
 	convert(input, output, res, abitrate, vbitrate, threads, mpopts)
+	sys.exit(0)
 
 
 def calculate(input):
@@ -132,6 +135,9 @@ def calculate(input):
 
 def convert(input, output, res, abitrate, vbitrate, threads, mpopts):
 	"""Convert the Video"""
+
+	# Needed for cleanup function
+	global afifo, vfifo, mda, mdv
 
 	# Create FIFOs for passing audio/video from mplayer to ffmpeg
 	pid = os.getpid()
@@ -194,8 +200,8 @@ def convert(input, output, res, abitrate, vbitrate, threads, mpopts):
 
 	# Start mplayer decoding processes in background
 	try:
-		subprocess.Popen(mpvideodec, stdout=None, stderr=None)
-		subprocess.Popen(mpaudiodec, stdout=None, stderr=None)
+		mdv = subprocess.Popen(mpvideodec, stdout=None, stderr=None)
+		mda = subprocess.Popen(mpaudiodec, stdout=None, stderr=None)
 	except:
 		print "Error: Starting decoding threads failed!"
 		sys.exit(3)
@@ -203,13 +209,9 @@ def convert(input, output, res, abitrate, vbitrate, threads, mpopts):
 	# Start ffmpeg encoding process in foreground
 	try:
 		subprocess.check_call(ffmenc)
-	except CalledProcessError:
+	except subprocess.CalledProcessError:
 		print "Error: Encoding thread failed!"
-		sys.exit(4)
-
-	# Remove FIFOs after encoding
-	os.remove(afifo)
-	os.remove(vfifo)
+		sys	.exit(4)
 
 
 def progpath(program):
@@ -220,23 +222,50 @@ def progpath(program):
 			return os.path.join(path, program)
 	return None
 
+def cleanup():
+	"""Clean up when killed"""
+
+	# give ffmpeg time to stop
+	sleep(2)
+
+	# Cleanup
+	try:
+		os.kill(mda.pid())
+		os.kill(mdv.pid())
+	finally:
+		os.remove(afifo)
+		os.remove(vfifo)
+		sys.exit(0)
 
 def usage():
 	"""Print avaiable commandline arguments"""
 
 	print "This is n900-encode.py (C) 2010 Stefan Brand <seiichiro0185 AT tol DOT ch>"
-	print "n900-encode.py usage:\n"
-	print "--input <file>    [-i]: Video to Convert"
-	print "--output <file>   [-o]: Name of the converted Video"
-	print "--mpopts \"<opts>\" [-m]: Additional options for mplayer (eg -sid 1 or -aid 1) Must be enclosed in \"\""
-	print "--abitrate <br>   [-a]: Audio Bitrate in KBit/s"
-	print "--vbitrate <br>   [-v]: Video Bitrate in kBit/s"
-	print "--threads <num>   [-t]: Use <num> Threads to encode"
-	print "--force-iverwrite [-f]: Overwrite Output-File if existing"
-	print "--help            [-h]: Print this Help"
+	print "Usage:"
+	print "  n900-encode.py --input <file> [opts]\n"
+	print "Options:"
+	print "  --input <file>    [-i]: Video to Convert"
+	print "  --output <file>   [-o]: Name of the converted Video"
+	print "  --mpopts \"<opts>\" [-m]: Additional options for mplayer (eg -sid 1 or -aid 1) Must be enclosed in \"\""
+	print "  --abitrate <br>   [-a]: Audio Bitrate in KBit/s"
+	print "  --vbitrate <br>   [-v]: Video Bitrate in kBit/s"
+	print "  --threads <num>   [-t]: Use <num> Threads to encode"
+	print "  --force-overwrite [-f]: Overwrite output-file if existing"
+	print "  --help            [-h]: Print this Help"
 	sys.exit(0)
 
 
 # Start the Main Function
 if __name__ == "__main__":
-    main(sys.argv[1:])
+	# Catch kill and cleean up
+	atexit.register(cleanup)
+
+	signal(SIGTERM, lambda signum, stack_frame: exit(1))
+	signal(SIGINT, lambda signum, stack_frame: exit(1))
+
+	# Check min params and start if sufficient
+	if len(sys.argv) > 1:
+		main(sys.argv[1:])
+	else:
+		print "Error: You have to give an input file at least!"
+		usage()
