@@ -53,9 +53,9 @@ def main(argv):
 		elif opt in ("-m" "--mpopts"):
 			mpopts = arg
 		elif opt in ("-a", "--abitrate"):
-			abitrate = arg * 1000
+			abitrate = int(arg) * 1000
 		elif opt in ("-v", "--vbitrate"):
-			vbitrate = arg * 1000
+			vbitrate = int(arg) * 1000
 		elif opt in ("-t", "--threads"):
 			threads = arg
 		elif opt in ("-f", "--force-overwrite"):
@@ -124,6 +124,8 @@ def calculate(input):
 		sys.exit(2)
 
 	# Calculate output resolution
+	if float(orig_aspect) == 0 or orig_aspect == "":
+		orig_aspect == float(orig_width)/float(orig_height)
 	width = _basewidth
 	height = int(round(_basewidth / float(orig_aspect) / 16) * 16)
 	if (height > _maxheight):
@@ -194,7 +196,7 @@ def convert(input, output, res, abitrate, vbitrate, threads, mpopts):
 			"-coder", "0", "-me_range", "16",
 			"-g", "300", "-keyint_min", "25",
 			"-sc_threshold", "40", "-i_qfactor", "0.71",
-			"-bt", "640", "-bufsize", "10M",
+			"-bt", "640", "-bufsize", "10M", "-maxrate", "1000000",
 			"-rc_eq", "'blurCplx^(1-qComp)'",
 			"-qcomp", "0.62", "-qmin", "10", "-qmax", "51",
 			"-level", "30", "-f", "mp4", 
@@ -235,9 +237,11 @@ def cleanup():
 		os.kill(mda.pid())
 		os.kill(mdv.pid())
 	finally:
-		os.remove(afifo)
-		os.remove(vfifo)
-		sys.exit(0)
+		try:
+			os.remove(afifo)
+			os.remove(vfifo)
+		finally:
+			sys.exit(0)
 
 def usage():
 	"""Print avaiable commandline arguments"""
