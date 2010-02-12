@@ -23,7 +23,7 @@ _mpbin = None				# mplayer binary, if set to None it is searched in your $PATH
 _ffbin = None				# ffmpeg binary, if set to None it is searched in your $PATH
 
 ###########################################################################################
-# Main Program, no changes needed bekow this line
+# Main Program, no changes needed below this line
 ###########################################################################################
 
 def main(argv):
@@ -153,8 +153,9 @@ def convert(input, output, res, abitrate, vbitrate, threads, mpopts):
 			"-benchmark",
 			"-quiet",
 			"-msglevel", "all=-1",
-			mpopts,
 			input ]
+	for mpopt in mpopts.split(" "):
+		mpvideodec.append(mpopt)
 
 	# Define mplayer command for audio decoding
 	mpaudiodec = [ mpbin,
@@ -164,8 +165,10 @@ def convert(input, output, res, abitrate, vbitrate, threads, mpopts):
 			"-noframedrop",
 			"-quiet",
 			"-msglevel", "all=-1",
-			mpopts,
 			input ]
+	for mpopt in mpopts.split(" "):
+		mpaudiodec.append(mpopt)
+
 
 	# Define ffmpeg command for a/v encoding
 	ffmenc = [ ffbin,
@@ -227,7 +230,7 @@ def usage():
 	print "n900-encode.py usage:\n"
 	print "--input <file>    [-i]: Video to Convert"
 	print "--output <file>   [-o]: Name of the converted Video"
-	print "--mpopts \"<opts>\" [-m]: Additional options for mplayer (eg -sid 1 or -aid 1)"
+	print "--mpopts \"<opts>\" [-m]: Additional options for mplayer (eg -sid 1 or -aid 1) Must be enclosed in \"\""
 	print "--abitrate <br>   [-a]: Audio Bitrate in KBit/s"
 	print "--vbitrate <br>   [-v]: Video Bitrate in kBit/s"
 	print "--threads <num>   [-t]: Use <num> Threads to encode"
