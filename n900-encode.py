@@ -125,7 +125,7 @@ def calculate(input):
 
 	# Calculate output resolution
 	if float(orig_aspect) == 0 or orig_aspect == "":
-		orig_aspect == float(orig_width)/float(orig_height)
+		orig_aspect = float(orig_width)/float(orig_height)
 	width = _basewidth
 	height = int(round(_basewidth / float(orig_aspect) / 16) * 16)
 	if (height > _maxheight):
