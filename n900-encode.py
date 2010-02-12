@@ -156,6 +156,7 @@ def convert(input, output, res, abitrate, vbitrate, threads, mpopts):
 			"-noframedrop",
 			"-benchmark",
 			"-quiet",
+			"-nolirc",
 			"-msglevel", "all=-1",
 			input ]
 	for mpopt in mpopts.split(" "):
@@ -168,6 +169,7 @@ def convert(input, output, res, abitrate, vbitrate, threads, mpopts):
 			"-vc", "null",
 			"-noframedrop",
 			"-quiet",
+			"-nolirc",
 			"-msglevel", "all=-1",
 			input ]
 	for mpopt in mpopts.split(" "):
@@ -257,7 +259,7 @@ def usage():
 
 # Start the Main Function
 if __name__ == "__main__":
-	# Catch kill and cleean up
+	# Catch kill and clean up
 	atexit.register(cleanup)
 
 	signal(SIGTERM, lambda signum, stack_frame: exit(1))
