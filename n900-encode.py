@@ -64,22 +64,20 @@ def main(argv):
 	# Check for needed Programs
 	global mpbin
 	mpbin = None
-	if _mpbin == None:
-		mpbin = progpath("mplayer")
+	if not _mpbin == None and os.path.exists(_mpbin) and not os.path.isdir(_mpbin):
+		mpbin = _mpbin
 	else:
-		if os.path.exists(_mpbin) and not os.path.isdir(_mpbin):
-			mpbin = _mpbin
+		mpbin = progpath("mplayer")
 	if mpbin == None:
 		print "Error: mplayer not found in PATH binary given, Aborting!"
 		sys.exit(1)
 
 	global ffbin
 	ffbin = None
-	if _ffbin == None:
-		ffbin = progpath("ffmpeg")
+	if not _ffbin == None and os.path.exists(_ffbin) and not os.path.isdir(_ffbin):
+		ffbin = _ffbin
 	else:
-		if os.path.exists(_ffbin) and not os.path.isdir(_ffbin):
-			ffbin = _ffbin
+		ffbin = progpath("ffmpeg")
 	if ffbin == None:
 		print "Error: ffmpeg not found in PATH and no binary given, Aborting!"
 		sys.exit(1)
@@ -226,7 +224,7 @@ def progpath(program):
 def usage():
 	"""Print avaiable commandline arguments"""
 
-	print "This is n900-encode.py (C) 2010 Stefan Brand <seiichiro0185 AT tol.ch>"
+	print "This is n900-encode.py (C) 2010 Stefan Brand <seiichiro0185 AT tol DOT ch>"
 	print "n900-encode.py usage:\n"
 	print "--input <file>    [-i]: Video to Convert"
 	print "--output <file>   [-o]: Name of the converted Video"
