@@ -1,0 +1,22 @@
+This script will encode almost any Video to an N900 compatible MP4 with h264 video and aac audio
+
+PREQUISITES:
+============
+
+The following components are needed:
+
+  * mplayer
+  * mencoder
+  * MP4Box (from gpac package)
+  * python
+
+USAGE:
+======
+
+The basic usage is like this:
+
+> n900-encode.py -i some_video.avi -o n900_video.mp4
+
+for more options run 
+
+> n900-encode.py -h
