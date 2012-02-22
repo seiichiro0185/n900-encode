@@ -32,6 +32,14 @@ _ffbin = None				# ffmpeg binary, if set to None it is searched in your $PATH
 # Main Program, no changes needed below this line
 ###########################################################################################
 
+# Global Variables
+
+mda = None
+mdv = None
+afifo = None
+vfifo = None
+
+# Main Function
 def main(argv):
 	"""Main Function, cli argument processing and checking"""
 
@@ -238,14 +246,16 @@ def cleanup():
 
 	# Cleanup
 	try:
-		os.kill(mda.pid())
-		os.kill(mdv.pid())
+		if (mda != None):
+			os.kill(mda.pid())
+		if (mdv != None):
+			os.kill(mdv.pid())
 	finally:
-		try:
+		if (afifo != None):
 			os.remove(afifo)
+		if (vfifo != None):
 			os.remove(vfifo)
-		finally:
-			sys.exit(0)
+		os._exit(0)
 
 def usage():
 	"""Print avaiable commandline arguments"""
@@ -262,7 +272,7 @@ def usage():
 	print("  --threads <num>   [-t]: Use <num> Threads to encode")
 	print("  --force-overwrite [-f]: Overwrite output-file if existing")
 	print("  --help            [-h]: Print this Help")
-	sys.exit(0)
+	os._exit(0)
 
 
 # Start the Main Function
