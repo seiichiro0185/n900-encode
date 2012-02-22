@@ -4,7 +4,9 @@
 # n900-encode.py: Encode almost any Video to an Nokia N900-compatible format (h264,aac,mp4)
 # Disclaimer: This program is provided without any warranty, USE AT YOUR OWN RISK!
 #
-# (C) 2010-2011 Stefan Brand <seiichiro@seiichiro0185.org>
+# Version 1.1 (22.02.2012)
+#
+# (C) 2010-2012 Stefan Brand <seiichiro@seiichiro0185.org>
 #
 # This programm is licensed under the Terms of the GPL Version 3
 # See COPYING for more info.
@@ -32,14 +34,22 @@ _ffbin = None				# ffmpeg binary, if set to None it is searched in your $PATH
 # Main Program, no changes needed below this line
 ###########################################################################################
 
+# Global Variables
+
+mda = None
+mdv = None
+afifo = None
+vfifo = None
+
+# Main Function
 def main(argv):
 	"""Main Function, cli argument processing and checking"""
 
 	# CLI Argument Processing
 	try:
 		opts, args = getopt.getopt(argv, "i:o:m:v:a:t:hf", ["input=", "output=", "mpopts=", "abitrate=", "vbitrate=", "threads=", "help", "force-overwrite"])
-	except getopt.GetoptError, err:
-		print str(err)
+	except getopt.GetoptError as err:
+		printi(str(err))
 		usage()
 
 	input = None
@@ -75,7 +85,7 @@ def main(argv):
 	else:
 		mpbin = progpath("mplayer")
 	if mpbin == None:
-		print "Error: mplayer not found in PATH and no binary given, Aborting!"
+		print("Error: mplayer not found in PATH and no binary given, Aborting!")
 		sys.exit(1)
 
 	global ffbin
@@ -85,19 +95,19 @@ def main(argv):
 	else:
 		ffbin = progpath("ffmpeg")
 	if ffbin == None:
-		print "Error: ffmpeg not found in PATH and no binary given, Aborting!"
+		print( "Error: ffmpeg not found in PATH and no binary given, Aborting!")
 		sys.exit(1)
 
 	# Check input and output files
 	if not os.path.isfile(input):
-		print "Error: input file is not a valid File or doesn't exist"
+		print("Error: input file is not a valid File or doesn't exist")
 		sys.exit(2)
 
 	if os.path.isfile(output):
 		if overwrite:
 			os.remove(output)
 		else:
-			print "Error: output file " + output + " already exists, force overwrite with -f"
+			print("Error: output file " + output + " already exists, force overwrite with -f")
 			sys.exit(1)
 
 	# Start Processing
@@ -112,19 +122,19 @@ def calculate(input):
 	# Get characteristics using mplayer
 	cmd=[mpbin, "-ao", "null", "-vo", "null", "-frames", "0", "-identify", input]
 	mp = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
-	
+
 	try:
 		s = re.compile("^ID_VIDEO_ASPECT=(.*)$", re.M)
-		m = s.search(mp[0])
+		m = s.search(bytes.decode(mp[0]))
 		orig_aspect = m.group(1)
 		s = re.compile("^ID_VIDEO_WIDTH=(.*)$", re.M)
-		m = s.search(mp[0])
+		m = s.search(bytes.decode(mp[0]))
 		orig_width = m.group(1)
 		s = re.compile("^ID_VIDEO_HEIGHT=(.*)$", re.M)
-		m = s.search(mp[0])
+		m = s.search(bytes.decode(mp[0]))
 		orig_height = m.group(1)
 	except:
-		print "Error: unable to identify source video, exiting!"
+		print("Error: unable to identify source video, exiting!")
 		sys.exit(2)
 
 	# Calculate output resolution
@@ -187,13 +197,16 @@ def convert(input, output, res, abitrate, vbitrate, threads, mpopts):
 			"-f", "yuv4mpegpipe",
 			"-i", vfifo,
 			"-i", afifo,
-			"-acodec", "libfaac",
+			"-acodec", "aac",
+			"-strict", "experimental",
 			"-ac", "2",
 			"-ab", str(abitrate),
-			"-ar", "22500",
+			"-ar", "44100",
 			"-vcodec", "libx264",
 			"-threads", str(threads),
-			"-b", str(vbitrate),
+			"-vprofile", "baseline",
+			"-tune", "animation",
+			"-b:v", str(vbitrate),
 			"-flags", "+loop", "-cmp", "+chroma",
 			"-partitions", "+parti4x4+partp8x8+partb8x8",
 			"-subq", "5", "-trellis", "1", "-refs", "1",
@@ -203,7 +216,7 @@ def convert(input, output, res, abitrate, vbitrate, threads, mpopts):
 			"-bt", "640", "-bufsize", "10M", "-maxrate", "1000000",
 			"-rc_eq", "'blurCplx^(1-qComp)'",
 			"-qcomp", "0.62", "-qmin", "10", "-qmax", "51",
-			"-level", "30", "-f", "mp4", 
+			"-x264opts", "level=3.0", "-f", "mp4", 
 			output ]
 
 	# Start mplayer decoding processes in background
@@ -211,14 +224,14 @@ def convert(input, output, res, abitrate, vbitrate, threads, mpopts):
 		mdv = subprocess.Popen(mpvideodec, stdout=None, stderr=None)
 		mda = subprocess.Popen(mpaudiodec, stdout=None, stderr=None)
 	except:
-		print "Error: Starting decoding threads failed!"
+		print("Error: Starting decoding threads failed!")
 		sys.exit(3)
 	
 	# Start ffmpeg encoding process in foreground
 	try:
 		subprocess.check_call(ffmenc)
 	except subprocess.CalledProcessError:
-		print "Error: Encoding thread failed!"
+		print("Error: Encoding thread failed!")
 		sys	.exit(4)
 
 
@@ -238,31 +251,33 @@ def cleanup():
 
 	# Cleanup
 	try:
-		os.kill(mda.pid())
-		os.kill(mdv.pid())
+		if (mda != None):
+			os.kill(mda.pid())
+		if (mdv != None):
+			os.kill(mdv.pid())
 	finally:
-		try:
+		if (afifo != None):
 			os.remove(afifo)
+		if (vfifo != None):
 			os.remove(vfifo)
-		finally:
-			sys.exit(0)
+		os._exit(0)
 
 def usage():
 	"""Print avaiable commandline arguments"""
 
-	print "This is n900-encode.py (C) 2010 Stefan Brand <seiichiro0185 AT tol DOT ch>"
-	print "Usage:"
-	print "  n900-encode.py --input <file> [opts]\n"
-	print "Options:"
-	print "  --input <file>    [-i]: Video to Convert"
-	print "  --output <file>   [-o]: Name of the converted Video"
-	print "  --mpopts \"<opts>\" [-m]: Additional options for mplayer (eg -sid 1 or -aid 1) Must be enclosed in \"\""
-	print "  --abitrate <br>   [-a]: Audio Bitrate in KBit/s"
-	print "  --vbitrate <br>   [-v]: Video Bitrate in kBit/s"
-	print "  --threads <num>   [-t]: Use <num> Threads to encode"
-	print "  --force-overwrite [-f]: Overwrite output-file if existing"
-	print "  --help            [-h]: Print this Help"
-	sys.exit(0)
+	print("This is n900-encode.py (C) 2010 Stefan Brand <seiichiro0185 AT tol DOT ch>")
+	print("Usage:")
+	print("  n900-encode.py --input <file> [opts]\n")
+	print("Options:")
+	print("  --input <file>    [-i]: Video to Convert")
+	print("  --output <file>   [-o]: Name of the converted Video")
+	print("  --mpopts \"<opts>\" [-m]: Additional options for mplayer (eg -sid 1 or -aid 1) Must be enclosed in \"\"")
+	print("  --abitrate <br>   [-a]: Audio Bitrate in KBit/s")
+	print("  --vbitrate <br>   [-v]: Video Bitrate in kBit/s")
+	print("  --threads <num>   [-t]: Use <num> Threads to encode")
+	print("  --force-overwrite [-f]: Overwrite output-file if existing")
+	print("  --help            [-h]: Print this Help")
+	os._exit(0)
 
 
 # Start the Main Function
@@ -277,5 +292,5 @@ if __name__ == "__main__":
 	if len(sys.argv) > 1:
 		main(sys.argv[1:])
 	else:
-		print "Error: You have to give an input file at least!"
+		print("Error: You have to give an input file at least!")
 		usage()

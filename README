@@ -6,8 +6,7 @@ PREQUISITES:
 The following components are needed:
 
   * mplayer
-  * mencoder
-  * MP4Box (from gpac package)
+	* ffmpeg (tested with version 0.10, older versions may or may not work)
   * python
 
 USAGE:
