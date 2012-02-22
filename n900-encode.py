@@ -120,16 +120,16 @@ def calculate(input):
 	# Get characteristics using mplayer
 	cmd=[mpbin, "-ao", "null", "-vo", "null", "-frames", "0", "-identify", input]
 	mp = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
-	
+
 	try:
 		s = re.compile("^ID_VIDEO_ASPECT=(.*)$", re.M)
-		m = s.search(mp[0])
+		m = s.search(bytes.decode(mp[0]))
 		orig_aspect = m.group(1)
 		s = re.compile("^ID_VIDEO_WIDTH=(.*)$", re.M)
-		m = s.search(mp[0])
+		m = s.search(bytes.decode(mp[0]))
 		orig_width = m.group(1)
 		s = re.compile("^ID_VIDEO_HEIGHT=(.*)$", re.M)
-		m = s.search(mp[0])
+		m = s.search(bytes.decode(mp[0]))
 		orig_height = m.group(1)
 	except:
 		print("Error: unable to identify source video, exiting!")
@@ -195,13 +195,16 @@ def convert(input, output, res, abitrate, vbitrate, threads, mpopts):
 			"-f", "yuv4mpegpipe",
 			"-i", vfifo,
 			"-i", afifo,
-			"-acodec", "libfaac",
+			"-acodec", "aac",
+			"-strict", "experimental",
 			"-ac", "2",
 			"-ab", str(abitrate),
-			"-ar", "22500",
+			"-ar", "44100",
 			"-vcodec", "libx264",
 			"-threads", str(threads),
-			"-b", str(vbitrate),
+			"-vprofile", "baseline",
+			"-tune", "animation",
+			"-b:v", str(vbitrate),
 			"-flags", "+loop", "-cmp", "+chroma",
 			"-partitions", "+parti4x4+partp8x8+partb8x8",
 			"-subq", "5", "-trellis", "1", "-refs", "1",
@@ -211,7 +214,7 @@ def convert(input, output, res, abitrate, vbitrate, threads, mpopts):
 			"-bt", "640", "-bufsize", "10M", "-maxrate", "1000000",
 			"-rc_eq", "'blurCplx^(1-qComp)'",
 			"-qcomp", "0.62", "-qmin", "10", "-qmax", "51",
-			"-level", "30", "-f", "mp4", 
+			"-x264opts", "level=3.0", "-f", "mp4", 
 			output ]
 
 	# Start mplayer decoding processes in background
