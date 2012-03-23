@@ -4,7 +4,7 @@
 # n900-encode.py: Encode almost any Video to an Nokia N900-compatible format (h264,aac,mp4)
 # Disclaimer: This program is provided without any warranty, USE AT YOUR OWN RISK!
 #
-# Version 1.1 (22.02.2012)
+# Version 1.2 (23.03.2012)
 #
 # (C) 2010-2012 Stefan Brand <seiichiro@seiichiro0185.org>
 #
