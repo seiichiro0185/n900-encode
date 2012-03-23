@@ -4,7 +4,7 @@
 # n900-encode.py: Encode almost any Video to an Nokia N900-compatible format (h264,aac,mp4)
 # Disclaimer: This program is provided without any warranty, USE AT YOUR OWN RISK!
 #
-# Version 1.1 (22.02.2012)
+# Version 1.2 (23.03.2012)
 #
 # (C) 2010-2012 Stefan Brand <seiichiro@seiichiro0185.org>
 #
@@ -21,12 +21,12 @@ from time import sleep
 # Default values, feel free to adjust
 ###########################################################################################
 
-_basewidth = 800 		# Base width for widescreen Video
+_basewidth = 854 		# Base width for widescreen Video
 _basewidth43 = 640	# Base width for 4:3 Video
 _maxheight = 480		# maximum height allowed
-_abitrate = 96			# Audio Bitrate in kBit/s
-_vbitrate = 500			# Video Bitrate in kBit/s
-_threads = 2				# Use n Threads to encode
+_abitrate = 112			# Audio Bitrate in kBit/s
+_vbitrate = 22			# Video Bitrate in kBit/s, Values < 52 are used as a CRF-Factor
+_threads = "auto"		# Use n Threads to encode
 _mpbin = None				# mplayer binary, if set to None it is searched in your $PATH
 _ffbin = None				# ffmpeg binary, if set to None it is searched in your $PATH
 
@@ -56,7 +56,7 @@ def main(argv):
 	output = "n900encode.mp4"
 	mpopts = ""
 	abitrate = _abitrate * 1000
-	vbitrate = _vbitrate * 1000
+	vbitrate = int(_vbitrate)
 	threads = _threads
 	overwrite = False
 	for opt, arg in opts:
@@ -69,7 +69,7 @@ def main(argv):
 		elif opt in ("-a", "--abitrate"):
 			abitrate = int(arg) * 1000
 		elif opt in ("-v", "--vbitrate"):
-			vbitrate = int(arg) * 1000
+			vbitrate = int(arg)
 		elif opt in ("-t", "--threads"):
 			threads = arg
 		elif opt in ("-f", "--force-overwrite"):
@@ -165,7 +165,7 @@ def convert(input, output, res, abitrate, vbitrate, threads, mpopts):
 	# Define mplayer command for video decoding
 	mpvideodec = [ mpbin,
 			"-sws", "9",
-			"-vf", "scale=" + str(res[0]) + ":" + str(res[1]) + ",unsharp=c4x4:0.3:l5x5:0.5",
+			"-vf", "scale=" + str(res[0]) + ":" + str(res[1]) + ",dsize=" + str(res[0]) + ":" + str(res[1]) + ",unsharp=c4x4:0.3:l5x5:0.5", "-ass",
 			"-vo", "yuv4mpeg:file=" + vfifo,
 			"-ao", "null",
 			"-nosound",
@@ -193,6 +193,14 @@ def convert(input, output, res, abitrate, vbitrate, threads, mpopts):
 
 
 	# Define ffmpeg command for a/v encoding
+
+	if (vbitrate > 51):
+		rmode = "-b:v"
+		vbitr = str(vbitrate*1000)
+	else:
+		rmode = "-crf"
+		vbitr = str(vbitrate)
+
 	ffmenc = [ ffbin,
 			"-f", "yuv4mpegpipe",
 			"-i", vfifo,
@@ -206,17 +214,13 @@ def convert(input, output, res, abitrate, vbitrate, threads, mpopts):
 			"-threads", str(threads),
 			"-vprofile", "baseline",
 			"-tune", "animation",
-			"-b:v", str(vbitrate),
-			"-flags", "+loop", "-cmp", "+chroma",
+			rmode, vbitr,
+			"-flags", "+loop", "-cmp", "+chroma", "-coder", "0",
 			"-partitions", "+parti4x4+partp8x8+partb8x8",
-			"-subq", "5", "-trellis", "1", "-refs", "1",
-			"-coder", "0", "-me_range", "16",
-			"-g", "300", "-keyint_min", "25",
-			"-sc_threshold", "40", "-i_qfactor", "0.71",
-			"-bt", "640", "-bufsize", "10M", "-maxrate", "1000000",
-			"-rc_eq", "'blurCplx^(1-qComp)'",
-			"-qcomp", "0.62", "-qmin", "10", "-qmax", "51",
-			"-x264opts", "level=3.0", "-f", "mp4", 
+			"-subq", "7", "-trellis", "1", "-refs", "3",
+			"-me_range", "16", "-me_method", "hex",
+			"-bufsize", "10M", "-maxrate", "1000000",
+			"-x264opts", "level=3.1", "-f", "mp4", 
 			output ]
 
 	# Start mplayer decoding processes in background
@@ -273,7 +277,7 @@ def usage():
 	print("  --output <file>   [-o]: Name of the converted Video")
 	print("  --mpopts \"<opts>\" [-m]: Additional options for mplayer (eg -sid 1 or -aid 1) Must be enclosed in \"\"")
 	print("  --abitrate <br>   [-a]: Audio Bitrate in KBit/s")
-	print("  --vbitrate <br>   [-v]: Video Bitrate in kBit/s")
+	print("  --vbitrate <br>   [-v]: Video Bitrate in kBit/s, values less than 52 will be used as CRF-Factor")
 	print("  --threads <num>   [-t]: Use <num> Threads to encode")
 	print("  --force-overwrite [-f]: Overwrite output-file if existing")
 	print("  --help            [-h]: Print this Help")
