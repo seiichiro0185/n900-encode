@@ -69,7 +69,7 @@ def main(argv):
 		elif opt in ("-a", "--abitrate"):
 			abitrate = int(arg) * 1000
 		elif opt in ("-v", "--vbitrate"):
-			vbitrate = int(arg) * 1000
+			vbitrate = int(arg)
 		elif opt in ("-t", "--threads"):
 			threads = arg
 		elif opt in ("-f", "--force-overwrite"):
@@ -193,6 +193,14 @@ def convert(input, output, res, abitrate, vbitrate, threads, mpopts):
 
 
 	# Define ffmpeg command for a/v encoding
+
+	if (vbitrate > 51):
+		rmode = "-b:v"
+		vbitr = str(vbitrate*1000)
+	else
+	  rmode = "-crf"
+		vbitr = vbitrate
+
 	ffmenc = [ ffbin,
 			"-f", "yuv4mpegpipe",
 			"-i", vfifo,
@@ -206,7 +214,7 @@ def convert(input, output, res, abitrate, vbitrate, threads, mpopts):
 			"-threads", str(threads),
 			"-vprofile", "baseline",
 			"-tune", "animation",
-			"-b:v", str(vbitrate),
+			rmode, vbitr,
 			"-flags", "+loop", "-cmp", "+chroma",
 			"-partitions", "+parti4x4+partp8x8+partb8x8",
 			"-subq", "5", "-trellis", "1", "-refs", "1",
