@@ -264,7 +264,6 @@ def cleanup():
 			os.remove(afifo)
 		if (vfifo != None):
 			os.remove(vfifo)
-		os._exit(0)
 
 def usage():
 	"""Print avaiable commandline arguments"""
