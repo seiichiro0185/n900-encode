@@ -48,8 +48,11 @@ def main(argv):
 	# CLI Argument Processing
 	try:
 		opts, args = getopt.getopt(argv, "i:o:m:v:a:t:hf", ["input=", "output=", "mpopts=", "abitrate=", "vbitrate=", "threads=", "help", "force-overwrite"])
-	except getopt.GetoptError as err:
-		printi(str(err))
+	except:
+		usage()
+
+	if (len(args) != 0):
+		print("Error: Unsupported Arguments found!")
 		usage()
 
 	input = None
@@ -256,9 +259,11 @@ def cleanup():
 	# Cleanup
 	try:
 		if (mda != None):
-			os.kill(mda.pid())
+			if (mda.pid() != None):
+				os.kill(mda.pid())
 		if (mdv != None):
-			os.kill(mdv.pid())
+			if (mda.pid() != None):
+				os.kill(mdv.pid())
 	finally:
 		if (afifo != None):
 			os.remove(afifo)
