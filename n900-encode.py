@@ -48,8 +48,11 @@ def main(argv):
 	# CLI Argument Processing
 	try:
 		opts, args = getopt.getopt(argv, "i:o:m:v:a:t:hf", ["input=", "output=", "mpopts=", "abitrate=", "vbitrate=", "threads=", "help", "force-overwrite"])
-	except getopt.GetoptError as err:
-		printi(str(err))
+	except:
+		usage()
+
+	if (len(args) != 0):
+		print("Error: Unsupported Arguments found!")
 		usage()
 
 	input = None
@@ -80,7 +83,7 @@ def main(argv):
 	# Check for needed Programs
 	global mpbin
 	mpbin = None
-	if not _mpbin == None and os.path.exists(_mpbin) and not os.path.isdir(_mpbin):
+	if not _mpbin == None and os.path.isfile(_mpbin):
 		mpbin = _mpbin
 	else:
 		mpbin = progpath("mplayer")
@@ -90,7 +93,7 @@ def main(argv):
 
 	global ffbin
 	ffbin = None
-	if not _ffbin == None and os.path.exists(_ffbin) and not os.path.isdir(_ffbin):
+	if not _ffbin == None and os.path.isfile(_ffbin):
 		ffbin = _ffbin
 	else:
 		ffbin = progpath("ffmpeg")
@@ -99,7 +102,7 @@ def main(argv):
 		sys.exit(1)
 
 	# Check input and output files
-	if not os.path.isfile(input):
+	if (input == None or not os.path.isfile(input)):
 		print("Error: input file is not a valid File or doesn't exist")
 		sys.exit(2)
 
@@ -121,7 +124,11 @@ def calculate(input):
 
 	# Get characteristics using mplayer
 	cmd=[mpbin, "-ao", "null", "-vo", "null", "-frames", "0", "-identify", input]
-	mp = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+	try:
+		mp = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+	except:
+		print("Error: Couldn't execute mplayer")
+		sys.exit(1)
 
 	try:
 		s = re.compile("^ID_VIDEO_ASPECT=(.*)$", re.M)
@@ -159,8 +166,12 @@ def convert(input, output, res, abitrate, vbitrate, threads, mpopts):
 	pid = os.getpid()
 	afifo = "/tmp/stream" + str(pid) + ".wav"
 	vfifo = "/tmp/stream" + str(pid) + ".yuv"
-	os.mkfifo(afifo)
-	os.mkfifo(vfifo)
+	try:
+		os.mkfifo(afifo)
+		os.mkfifo(vfifo)
+	except:
+		print("Error: Couldn't create fifos!")
+		sys.exit(2)
 
 	# Define mplayer command for video decoding
 	mpvideodec = [ mpbin,
@@ -230,13 +241,22 @@ def convert(input, output, res, abitrate, vbitrate, threads, mpopts):
 	except:
 		print("Error: Starting decoding threads failed!")
 		sys.exit(3)
-	
+
+	print("Waiting for decoding threads to start...")
+
+	# Wait 
+	sleep(2)
+	# Check if the decoding processes are running
+	if (mda.poll() != None or mdv.poll() != None):
+			print("Error: Starting decoding threads failed!")
+			sys.exit(3)
+
 	# Start ffmpeg encoding process in foreground
 	try:
 		subprocess.check_call(ffmenc)
 	except subprocess.CalledProcessError:
 		print("Error: Encoding thread failed!")
-		sys	.exit(4)
+		sys.exit(4)
 
 
 def progpath(program):
@@ -256,20 +276,21 @@ def cleanup():
 	# Cleanup
 	try:
 		if (mda != None):
-			os.kill(mda.pid())
+			if (mda.returncode == None):
+				mda.kill()
 		if (mdv != None):
-			os.kill(mdv.pid())
+			if (mdv.returncode == None):
+				mdv.kill()
 	finally:
-		if (afifo != None):
+		if (afifo != None and os.path.exists(afifo)):
 			os.remove(afifo)
-		if (vfifo != None):
+		if (vfifo != None and os.path.exists(vfifo)):
 			os.remove(vfifo)
-		os._exit(0)
 
 def usage():
 	"""Print avaiable commandline arguments"""
 
-	print("This is n900-encode.py (C) 2010 Stefan Brand <seiichiro0185 AT tol DOT ch>")
+	print("This is n900-encode.py (C) 2012 Stefan Brand <seiichiro0185 AT seiichiro0185 DOT org>")
 	print("Usage:")
 	print("  n900-encode.py --input <file> [opts]\n")
 	print("Options:")
