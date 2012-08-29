@@ -102,7 +102,7 @@ def main(argv):
 		sys.exit(1)
 
 	# Check input and output files
-	if not os.path.isfile(input):
+	if (input == None or not os.path.isfile(input)):
 		print("Error: input file is not a valid File or doesn't exist")
 		sys.exit(2)
 
