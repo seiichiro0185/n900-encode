@@ -236,7 +236,7 @@ def convert(input, output, res, abitrate, vbitrate, threads, mpopts):
 		subprocess.check_call(ffmenc)
 	except subprocess.CalledProcessError:
 		print("Error: Encoding thread failed!")
-		sys	.exit(4)
+		sys.exit(4)
 
 
 def progpath(program):
