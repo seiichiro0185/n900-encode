@@ -4,7 +4,7 @@
 # n900-encode.py: Encode almost any Video to an Nokia N900-compatible format (h264,aac,mp4)
 # Disclaimer: This program is provided without any warranty, USE AT YOUR OWN RISK!
 #
-# Version 1.2 (23.03.2012)
+# Version 1.2.2 (03.08.2012)
 #
 # (C) 2010-2012 Stefan Brand <seiichiro@seiichiro0185.org>
 #
@@ -70,9 +70,17 @@ def main(argv):
 		elif opt in ("-m" "--mpopts"):
 			mpopts = arg
 		elif opt in ("-a", "--abitrate"):
-			abitrate = int(arg) * 1000
+			try:
+				abitrate = int(arg) * 1000
+			except ValueError:
+				print("Error: invalid value for audio bitrate!")
+				usage()
 		elif opt in ("-v", "--vbitrate"):
-			vbitrate = int(arg)
+			try:
+				vbitrate = int(arg)
+			except ValueError:
+				print("Error: Invalid value for video bitrate!")
+				usage()
 		elif opt in ("-t", "--threads"):
 			threads = arg
 		elif opt in ("-f", "--force-overwrite"):
